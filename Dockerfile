@@ -1,6 +1,5 @@
 FROM node:20-slim
 
-# Install yt-dlp + ffmpeg
 RUN apt-get update && apt-get install -y \
     ffmpeg python3 python3-pip curl \
     && pip3 install -U yt-dlp --break-system-packages \
@@ -14,6 +13,9 @@ RUN npm install
 COPY . .
 
 RUN mkdir -p downloads
+
+# Tell yt-dlp where Node.js is for JS runtime
+ENV PATH="/usr/local/bin:$PATH"
 
 EXPOSE 3001
 
