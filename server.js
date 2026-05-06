@@ -270,3 +270,13 @@ setInterval(() => {
 
 app.listen(PORT, () => console.log(`🎵 Beats Server v1.0.0 on :${PORT}`));
 process.on('SIGTERM', () => process.exit(0));
+
+// Debug endpoint - remove after testing
+app.get('/api/test-ytdlp', (req, res) => {
+  const { spawn } = require('child_process');
+  const proc = spawn('yt-dlp', ['--dump-json', '--no-playlist', 'https://www.youtube.com/watch?v=dNt1QR1ecuM']);
+  let out = '', err = '';
+  proc.stdout.on('data', d => out += d.toString());
+  proc.stderr.on('data', d => err += d.toString());
+  proc.on('close', code => res.json({ code, out: out.slice(0,500), err: err.slice(0,1000) }));
+});
