@@ -1,0 +1,6 @@
+node_modules/
+downloads/
+*.db
+*.db-shm
+*.db-wal
+.git/
