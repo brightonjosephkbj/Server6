@@ -11,12 +11,7 @@ COPY package.json .
 RUN npm install
 
 COPY . .
-
 RUN mkdir -p downloads
 
-# Tell yt-dlp where Node.js is for JS runtime
-ENV PATH="/usr/local/bin:$PATH"
-
 EXPOSE 3001
-
 CMD ["node", "server.js"]
