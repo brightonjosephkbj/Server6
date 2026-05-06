@@ -115,7 +115,55 @@ async function searchVideo(q) {
 }
 
 // ── Download runner ──────────────────────────────────────────────────────────
+async function getStreamUrl(videoId) {
+  const instances = [
+    'https://invidious.privacyredirect.com',
+    'https://iv.datura.network',
+    'https://invidious.nerdvpn.de',
+  ];
+  for (const base of instances) {
+    try {
+      const r = await axios.get(`${base}/api/v1/videos/${videoId}?fields=adaptiveFormats,formatStreams`, { timeout: 8000 });
+      const all = [...(r.data.adaptiveFormats||[]), ...(r.data.formatStreams||[])];
+      const audio = all.find(s => s.itag === 140 || s.itag === 251) || all.find(s => s.type?.includes('audio'));
+      const video = all.find(s => s.itag === 22) || all.find(s => s.type?.includes('video/mp4') && s.resolution === '720p') || all.find(s => s.type?.includes('video'));
+      if (audio || video) return { audioUrl: audio?.url, videoUrl: video?.url };
+    } catch(e) { console.log('Invidious failed:', base, e.message); }
+  }
+  throw new Error('All Invidious instances failed');
+}
+
 function runDownload(id, videoId, format, quality) {
+  const isAudio = ['mp3','aac','flac','m4a','opus','wav'].includes(format);
+  const outFile = path.join(DL_DIR, `${id}.${format}`);
+
+  db.prepare(`UPDATE tracks SET status='downloading' WHERE id=?`).run(id);
+
+  getStreamUrl(videoId).then(({ audioUrl, videoUrl }) => {
+    const srcUrl = isAudio ? audioUrl : (videoUrl || audioUrl);
+    if (!srcUrl) { db.prepare(`UPDATE tracks SET status='failed', error='No stream URL' WHERE id=?`).run(id); return; }
+
+    const ffArgs = isAudio
+      ? ['-i', srcUrl, '-vn', '-acodec', format === 'mp3' ? 'libmp3lame' : 'aac', '-q:a', '0', '-progress', 'pipe:1', outFile]
+      : ['-i', srcUrl, '-c', 'copy', '-progress', 'pipe:1', outFile];
+
+    const ff = spawn('ffmpeg', ['-y', ...ffArgs]);
+    ff.stdout.on('data', d => {
+      const m = d.toString().match(/out_time_ms=(\d+)/);
+      if (m) db.prepare(`UPDATE tracks SET progress=50 WHERE id=?`).run(id);
+    });
+    ff.stderr.on('data', d => console.error('[ffmpeg]', d.toString().slice(0,200)));
+    ff.on('close', code => {
+      if (code === 0 && fs.existsSync(outFile)) {
+        db.prepare(`UPDATE tracks SET status='completed', progress=100, file_path=?, file_size=? WHERE id=?`)
+          .run(outFile, fs.statSync(outFile).size, id);
+      } else {
+        db.prepare(`UPDATE tracks SET status='failed', error='ffmpeg failed' WHERE id=?`).run(id);
+      }
+    });
+  }).catch(e => db.prepare(`UPDATE tracks SET status='failed', error=? WHERE id=?`).run(e.message, id));
+
+  return; // old code below replaced
   const url     = `https://www.youtube.com/watch?v=${videoId}`;
   const isAudio = ['mp3','aac','flac','m4a','opus','wav'].includes(format);
   const out     = path.join(DL_DIR, `${id}.%(ext)s`);
