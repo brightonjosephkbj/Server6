@@ -151,7 +151,7 @@ function runDownload(id, videoId, format, quality) {
               .run(Math.min(Math.round(parseFloat(m[1])), 99), id);
   });
 
-  proc.stderr.on('data', d => console.error('[yt-dlp]', d.toString().trim()));
+  proc.stderr.on('data', d => { const msg = d.toString().trim(); console.error('[yt-dlp stderr]', msg); db.prepare('UPDATE tracks SET error=? WHERE id=?').run(msg.slice(0,500), id); });
 
   proc.on('close', code => {
     if (code === 0) {
