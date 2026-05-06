@@ -123,7 +123,7 @@ function runDownload(id, videoId, format, quality) {
   const args = [
     '--output', out, '--no-playlist', '--newline', '--progress', '--no-warnings',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    '--extractor-args', 'youtube:player_client=android,mweb', '--js-interpreter', 'nodejs:/usr/local/bin/node',
+    '--extractor-args', 'youtube:player_client=tv_embedded,ios',
     '--no-check-certificate', '--retries', '3', '--fragment-retries', '3',
   ];
 
